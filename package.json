@@ -1,0 +1,30 @@
+{
+  "author": "whyrusleeping",
+  "bugs": {
+    "url": "https://github.com/ipfs/go-ipld-btc"
+  },
+  "gx": {
+    "dvcsimport": "github.com/ipfs/go-ipld-btc"
+  },
+  "gxDependencies": [
+    {
+      "author": "whyrusleeping",
+      "hash": "QmbTGYCo96Z9hiG37D9zeErFo5GjrEPcqdh7PJX1HTM73E",
+      "name": "go-cid",
+      "version": "0.7.0"
+    },
+    {
+      "author": "whyrusleeping",
+      "hash": "QmVtyW4wZg6Aic31zSX9cHCjj6Lyt1jY68S4uXF61ZaWLX",
+      "name": "go-ipld-node",
+      "version": "0.3.0"
+    }
+  ],
+  "gxVersion": "0.10.0",
+  "language": "go",
+  "license": "",
+  "name": "go-ipld-btc",
+  "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
+  "version": "0.0.0"
+}
+
