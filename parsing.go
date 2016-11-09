@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	node "gx/ipfs/QmVtyW4wZg6Aic31zSX9cHCjj6Lyt1jY68S4uXF61ZaWLX/go-ipld-node"
+	node "github.com/ipfs/go-ipld-node"
 )
 
 var BlockVersion = []byte{3, 0, 0, 0}
@@ -204,6 +204,7 @@ func readTx(r *bytes.Reader) (*Tx, error) {
 		return nil, err
 	}
 	out.Version = binary.LittleEndian.Uint32(version)
+	fmt.Println("version: ", out.Version)
 
 	inCtr, err := readVarint(r)
 	if err != nil {
@@ -240,6 +241,36 @@ func readTx(r *bytes.Reader) (*Tx, error) {
 	}
 
 	out.LockTime = binary.LittleEndian.Uint32(lock_time)
+
+	nJoinSplit, err := readVarint(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var joinsplits []*JSDescription
+	for i := 0; i < nJoinSplit; i++ {
+		js, err := readJoinSplit(r)
+		if err != nil {
+			return nil, err
+		}
+
+		joinsplits = append(joinsplits, js)
+	}
+	out.JoinSplits = joinsplits
+
+	jsPubK := make([]byte, 32)
+	_, err = io.ReadFull(r, jsPubK)
+	if err != nil {
+		return nil, err
+	}
+	out.JSPubKey = jsPubK
+
+	jsSig := make([]byte, 64)
+	_, err = io.ReadFull(r, jsSig)
+	if err != nil {
+		return nil, err
+	}
+	out.JSSig = jsSig
 
 	return &out, nil
 }
@@ -306,6 +337,80 @@ func parseTxOut(r *bytes.Reader) (*txOut, error) {
 		Value:  binary.LittleEndian.Uint64(value),
 		Script: script,
 	}, nil
+}
+
+func readJoinSplit(r *bytes.Reader) (*JSDescription, error) {
+	val := make([]byte, 8)
+	_, err := io.ReadFull(r, val)
+	if err != nil {
+		return nil, err
+	}
+	vpub_old := binary.LittleEndian.Uint64(val)
+
+	_, err = io.ReadFull(r, val)
+	if err != nil {
+		return nil, err
+	}
+	vpub_new := binary.LittleEndian.Uint64(val)
+
+	anchor, err := readBuf(r, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	nullifiers, err := readBuf(r, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	commitments, err := readBuf(r, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	ephKey, err := readBuf(r, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	randSeed, err := readBuf(r, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	vmacs, err := readBuf(r, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	zkproof, err := readBuf(r, 296)
+	if err != nil {
+		return nil, err
+	}
+
+	encCiphertexts, err := readBuf(r, 1202)
+	if err != nil {
+		return nil, err
+	}
+
+	return &JSDescription{
+		NewVal:       vpub_new,
+		OldVal:       vpub_old,
+		Anchor:       anchor,
+		CipherTexts:  [][]byte{encCiphertexts}, // TODO: thisones not in the right format yet
+		Commitments:  [][]byte{commitments},    // SAME
+		Macs:         [][]byte{vmacs},          // SAME
+		EphemeralKey: ephKey,
+		RandomSeed:   randSeed,
+		Proof:        zkproof,
+		Nullifiers:   [][]byte{nullifiers},
+	}, nil
+}
+
+func readBuf(r io.Reader, size int) ([]byte, error) {
+	out := make([]byte, size)
+	_, err := io.ReadFull(r, out)
+	return out, err
 }
 
 func readVarint(r *bytes.Reader) (int, error) {

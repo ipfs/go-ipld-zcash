@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	node "gx/ipfs/QmVtyW4wZg6Aic31zSX9cHCjj6Lyt1jY68S4uXF61ZaWLX/go-ipld-node"
-	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
-	cid "gx/ipfs/QmbTGYCo96Z9hiG37D9zeErFo5GjrEPcqdh7PJX1HTM73E/go-cid"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
 )
 
 type TxTree struct {
@@ -65,6 +65,11 @@ func (t *TxTree) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]*Link{{t.Left.Cid}, {t.Right.Cid}})
 }
 
+func (t *TxTree) Copy() node.Node {
+	nt := *t
+	return &nt
+}
+
 func (t *TxTree) ResolveLink(path []string) (*node.Link, []string, error) {
 	out, rest, err := t.Resolve(path)
 	if err != nil {
@@ -91,6 +96,6 @@ func (t *TxTree) String() string {
 	return fmt.Sprintf("[zcash transaction tree]")
 }
 
-func (t *TxTree) Tree() []string {
+func (t *TxTree) Tree(p string, depth int) []string {
 	return []string{"0", "1"}
 }

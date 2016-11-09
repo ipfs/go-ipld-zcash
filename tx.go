@@ -8,16 +8,19 @@ import (
 	"io"
 	"strconv"
 
-	node "gx/ipfs/QmVtyW4wZg6Aic31zSX9cHCjj6Lyt1jY68S4uXF61ZaWLX/go-ipld-node"
-	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
-	cid "gx/ipfs/QmbTGYCo96Z9hiG37D9zeErFo5GjrEPcqdh7PJX1HTM73E/go-cid"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
 )
 
 type Tx struct {
-	Version  uint32
-	Inputs   []*txIn
-	Outputs  []*txOut
-	LockTime uint32
+	Version    uint32
+	Inputs     []*txIn
+	Outputs    []*txOut
+	LockTime   uint32
+	JoinSplits []*JSDescription
+	JSPubKey   []byte
+	JSSig      []byte
 }
 
 func (t *Tx) Cid() *cid.Cid {
@@ -114,11 +117,16 @@ func (t *Tx) Stat() (*node.NodeStat, error) {
 	panic("NYI")
 }
 
-func (t *Tx) String() string {
-	return fmt.Sprintf("bitcoin transaction")
+func (t *Tx) Copy() node.Node {
+	nt := *t // cheating shallow copy
+	return &nt
 }
 
-func (t *Tx) Tree() []string {
+func (t *Tx) String() string {
+	return fmt.Sprintf("zcash transaction")
+}
+
+func (t *Tx) Tree(p string, depth int) []string {
 	out := []string{"version", "timeLock", "inputs", "outputs"}
 	for i, _ := range t.Inputs {
 		out = append(out, "inputs/"+fmt.Sprint(i))

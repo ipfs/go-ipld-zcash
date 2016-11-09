@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	node "gx/ipfs/QmVtyW4wZg6Aic31zSX9cHCjj6Lyt1jY68S4uXF61ZaWLX/go-ipld-node"
-	mh "gx/ipfs/QmYDds3421prZgqKbLpEK7T9Aa2eVdQ7o3YarX1LVLdP2J/go-multihash"
-	cid "gx/ipfs/QmbTGYCo96Z9hiG37D9zeErFo5GjrEPcqdh7PJX1HTM73E/go-cid"
+	cid "github.com/ipfs/go-cid"
+	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
 )
 
 type Block struct {
@@ -30,6 +30,7 @@ type Link struct {
 	Target *cid.Cid
 }
 
+// assert that Block matches the Node interface for ipld
 var _ node.Node = (*Block)(nil)
 
 func (b *Block) Cid() *cid.Cid {
@@ -54,11 +55,13 @@ func (b *Block) Links() []*node.Link {
 }
 
 func (b *Block) Loggable() map[string]interface{} {
+	// TODO: more helpful info here
 	return map[string]interface{}{
 		"type": "zcash_block",
 	}
 }
 
+// Resolve attempts to traverse a path through this block.
 func (b *Block) Resolve(path []string) (interface{}, []string, error) {
 	if len(path) == 0 {
 		return nil, nil, fmt.Errorf("zero length path")
@@ -88,6 +91,7 @@ func (b *Block) Resolve(path []string) (interface{}, []string, error) {
 	}
 }
 
+// ResolveLink is a helper function that allows easier traversal of links through blocks
 func (b *Block) ResolveLink(path []string) (*node.Link, []string, error) {
 	out, rest, err := b.Resolve(path)
 	if err != nil {
@@ -102,6 +106,7 @@ func (b *Block) ResolveLink(path []string) (*node.Link, []string, error) {
 	return lnk, rest, nil
 }
 
+// header generates a serialized block header for this block
 func (b *Block) header() []byte {
 	buf := bytes.NewBuffer(make([]byte, 112))
 
@@ -120,6 +125,10 @@ func (b *Block) header() []byte {
 	buf.Write(i)
 
 	buf.Write(b.Nonce)
+
+	writeVarInt(buf, uint64(len(b.Solution)))
+	buf.Write(b.Solution)
+
 	return buf.Bytes()
 }
 
@@ -135,7 +144,8 @@ func (b *Block) String() string {
 	return fmt.Sprintf("zcash block")
 }
 
-func (b *Block) Tree() []string {
+func (b *Block) Tree(p string, depth int) []string {
+	// TODO: this isnt a correct implementation yet
 	return []string{"difficulty", "nonce", "version", "timestamp", "tx"}
 }
 
@@ -146,6 +156,11 @@ func (b *Block) BTCSha() []byte {
 
 func (b *Block) HexHash() string {
 	return hex.EncodeToString(revString(b.BTCSha()))
+}
+
+func (b *Block) Copy() node.Node {
+	nb := *b // cheating shallow copy
+	return &nb
 }
 
 func revString(s []byte) []byte {
