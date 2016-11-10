@@ -9,15 +9,9 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmbTGYCo96Z9hiG37D9zeErFo5GjrEPcqdh7PJX1HTM73E",
-      "name": "go-cid",
-      "version": "0.7.0"
-    },
-    {
-      "author": "whyrusleeping",
-      "hash": "QmVtyW4wZg6Aic31zSX9cHCjj6Lyt1jY68S4uXF61ZaWLX",
+      "hash": "QmUsVJ7AEnGyjX8YWnrwq9vmECVGwBQNAKPpgz5KSg8dcq",
       "name": "go-ipld-node",
-      "version": "0.3.0"
+      "version": "0.4.1"
     }
   ],
   "gxVersion": "0.10.0",
