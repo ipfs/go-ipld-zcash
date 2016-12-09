@@ -14,18 +14,18 @@ import (
 )
 
 type Tx struct {
-	Version    uint32
-	Inputs     []*txIn
-	Outputs    []*txOut
-	LockTime   uint32
-	JoinSplits []*JSDescription
-	JSPubKey   []byte
-	JSSig      []byte
+	Version    uint32           `json:"version"`
+	Inputs     []*txIn          `json:"inputs"`
+	Outputs    []*txOut         `json:"outputs"`
+	LockTime   uint32           `json:"lockTime"`
+	JoinSplits []*JSDescription `json:"joinSplits"`
+	JSPubKey   []byte           `json:"jsPubKey"`
+	JSSig      []byte           `json:"jsSig"`
 }
 
 func (t *Tx) Cid() *cid.Cid {
 	h, _ := mh.Sum(t.RawData(), mh.DBL_SHA2_256, -1)
-	return cid.NewCidV1(cid.BitcoinTx, h)
+	return cid.NewCidV1(cid.ZcashTx, h)
 }
 
 func (t *Tx) Links() []*node.Link {
@@ -55,12 +55,24 @@ func (t *Tx) RawData() []byte {
 
 	binary.LittleEndian.PutUint32(i, t.LockTime)
 	buf.Write(i)
+	if t.Version == 1 {
+		return buf.Bytes()
+	}
+
+	writeVarInt(buf, uint64(len(t.JoinSplits)))
+	for _, js := range t.JoinSplits {
+		js.WriteTo(buf)
+	}
+
+	buf.Write(t.JSPubKey)
+	buf.Write(t.JSSig)
+
 	return buf.Bytes()
 }
 
 func (t *Tx) Loggable() map[string]interface{} {
 	return map[string]interface{}{
-		"type": "bitcoin_tx",
+		"type": "zcash_tx",
 	}
 }
 
@@ -84,7 +96,22 @@ func (t *Tx) Resolve(path []string) (interface{}, []string, error) {
 			return nil, nil, fmt.Errorf("index out of range")
 		}
 
-		return t.Inputs[index], path[2:], nil
+		inp := t.Inputs[index]
+		if len(path) == 2 {
+			return inp, nil, nil
+		}
+
+		switch path[2] {
+		case "prevTx":
+			c := hashToCid(inp.PrevTxHash, cid.ZcashTx)
+			return &node.Link{Cid: c}, path[3:], nil
+		case "seqNo":
+			return inp.SeqNo, path[3:], nil
+		case "script":
+			return inp.Script, path[3:], nil
+		default:
+			return nil, nil, fmt.Errorf("no such link")
+		}
 	case "outputs":
 		if len(path) == 1 {
 			return t.Outputs, nil, nil
@@ -100,13 +127,29 @@ func (t *Tx) Resolve(path []string) (interface{}, []string, error) {
 		}
 
 		return t.Outputs[index], path[2:], nil
+	case "joinSplits":
+		return t.JoinSplits, path[1:], nil
+	case "jsPubKey":
+		return t.JSPubKey, path[1:], nil
+	case "jsSig":
+		return t.JSSig, path[1:], nil
 	default:
 		return nil, nil, fmt.Errorf("no such link")
 	}
 }
 
 func (t *Tx) ResolveLink(path []string) (*node.Link, []string, error) {
-	panic("NYI")
+	i, rest, err := t.Resolve(path)
+	if err != nil {
+		return nil, rest, err
+	}
+
+	lnk, ok := i.(*node.Link)
+	if !ok {
+		return nil, nil, fmt.Errorf("value was not a link")
+	}
+
+	return lnk, rest, nil
 }
 
 func (t *Tx) Size() (uint64, error) {
@@ -114,7 +157,7 @@ func (t *Tx) Size() (uint64, error) {
 }
 
 func (t *Tx) Stat() (*node.NodeStat, error) {
-	panic("NYI")
+	return &node.NodeStat{}, nil
 }
 
 func (t *Tx) Copy() node.Node {
@@ -127,28 +170,29 @@ func (t *Tx) String() string {
 }
 
 func (t *Tx) Tree(p string, depth int) []string {
-	out := []string{"version", "timeLock", "inputs", "outputs"}
+	out := []string{"version", "timeLock", "inputs", "outputs", "joinSplits", "jsPubKey", "jsSig"}
 	for i, _ := range t.Inputs {
 		out = append(out, "inputs/"+fmt.Sprint(i))
 	}
 	for i, _ := range t.Outputs {
 		out = append(out, "outputs/"+fmt.Sprint(i))
 	}
+
 	return out
 }
 
-func (t *Tx) BTCSha() []byte {
+func (t *Tx) ZecSha() []byte {
 	mh, _ := mh.Sum(t.RawData(), mh.DBL_SHA2_256, -1)
 	return []byte(mh[2:])
 }
 
 func (t *Tx) HexHash() string {
-	return hex.EncodeToString(revString(t.BTCSha()))
+	return hex.EncodeToString(revString(t.ZecSha()))
 }
 
 func txHashToLink(b []byte) *node.Link {
 	mhb, _ := mh.Encode(b, mh.DBL_SHA2_256)
-	c := cid.NewCidV1(cid.BitcoinTx, mhb)
+	c := cid.NewCidV1(cid.ZcashTx, mhb)
 	return &node.Link{Cid: c}
 }
 

@@ -6,24 +6,10 @@ import (
 	"fmt"
 	"io"
 
+	cid "github.com/ipfs/go-cid"
 	node "github.com/ipfs/go-ipld-node"
+	mh "github.com/multiformats/go-multihash"
 )
-
-var BlockVersion = []byte{3, 0, 0, 0}
-
-var TransactionVersion = []byte{0, 0, 0, 1}
-
-func Decode(b []byte) (interface{}, error) {
-	prefix := b[:4]
-
-	if bytes.Equal(prefix, BlockVersion) {
-		return DecodeBlock(b)
-	} else if bytes.Equal(prefix, TransactionVersion) {
-		return DecodeTx(b)
-	} else {
-		return nil, fmt.Errorf("invalid format for zcash object")
-	}
-}
 
 func DecodeBlockMessage(b []byte) ([]node.Node, error) {
 	r := bytes.NewReader(b)
@@ -36,9 +22,6 @@ func DecodeBlockMessage(b []byte) ([]node.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("got transactions: ", nTx)
-	fmt.Println(len(b))
 
 	var txs []node.Node
 	for i := 0; i < nTx; i++ {
@@ -72,14 +55,13 @@ func mkMerkleTree(txs []node.Node) ([]*TxTree, error) {
 	var next []node.Node
 	layer := txs
 	for len(layer) > 1 {
+		if len(layer)%2 != 0 {
+			layer = append(layer, layer[len(layer)-1])
+		}
 		for i := 0; i < len(layer)/2; i++ {
 			var left, right node.Node
 			left = layer[i*2]
-			if len(layer) <= (i*2)+1 {
-				right = left
-			} else {
-				right = layer[(i*2)+1]
-			}
+			right = layer[(i*2)+1]
 
 			t := &TxTree{
 				Left:  &node.Link{Cid: left.Cid()},
@@ -116,14 +98,17 @@ func ReadBlock(r *bytes.Reader) (*Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	blk.PreviousBlock = prevBlock
+
+	blkhash, _ := mh.Encode(prevBlock, mh.DBL_SHA2_256)
+	blk.Parent = cid.NewCidV1(cid.ZcashBlock, blkhash)
 
 	merkleRoot := make([]byte, 32)
 	_, err = io.ReadFull(r, merkleRoot)
 	if err != nil {
 		return nil, err
 	}
-	blk.MerkleRoot = merkleRoot
+	txroothash, _ := mh.Encode(merkleRoot, mh.DBL_SHA2_256)
+	blk.MerkleRoot = cid.NewCidV1(cid.ZcashTx, txroothash)
 
 	reserved := make([]byte, 32)
 	_, err = io.ReadFull(r, reserved)
@@ -165,8 +150,6 @@ func ReadBlock(r *bytes.Reader) (*Block, error) {
 	}
 	blk.Solution = solution
 
-	fmt.Println(r.Len(), r.Size())
-
 	return &blk, nil
 }
 
@@ -204,7 +187,6 @@ func readTx(r *bytes.Reader) (*Tx, error) {
 		return nil, err
 	}
 	out.Version = binary.LittleEndian.Uint32(version)
-	fmt.Println("version: ", out.Version)
 
 	inCtr, err := readVarint(r)
 	if err != nil {
@@ -241,6 +223,10 @@ func readTx(r *bytes.Reader) (*Tx, error) {
 	}
 
 	out.LockTime = binary.LittleEndian.Uint32(lock_time)
+
+	if out.Version == 1 {
+		return &out, nil
+	}
 
 	nJoinSplit, err := readVarint(r)
 	if err != nil {
@@ -397,13 +383,13 @@ func readJoinSplit(r *bytes.Reader) (*JSDescription, error) {
 		NewVal:       vpub_new,
 		OldVal:       vpub_old,
 		Anchor:       anchor,
-		CipherTexts:  [][]byte{encCiphertexts}, // TODO: thisones not in the right format yet
-		Commitments:  [][]byte{commitments},    // SAME
-		Macs:         [][]byte{vmacs},          // SAME
+		CipherTexts:  [][]byte{encCiphertexts[:601], encCiphertexts[601:]}, // TODO: thisones not in the right format yet
+		Commitments:  [][]byte{commitments[:32], commitments[32:]},         // SAME
+		Macs:         [][]byte{vmacs[:32], vmacs[32:]},                     // SAME
 		EphemeralKey: ephKey,
 		RandomSeed:   randSeed,
 		Proof:        zkproof,
-		Nullifiers:   [][]byte{nullifiers},
+		Nullifiers:   [][]byte{nullifiers[:32], nullifiers[32:]},
 	}, nil
 }
 

@@ -15,8 +15,7 @@ type TxTree struct {
 }
 
 func (t *TxTree) ZECSha() []byte {
-	mh, _ := mh.Sum(t.RawData(), mh.DBL_SHA2_256, -1)
-	return []byte(mh[2:])
+	return cidToHash(t.Cid())
 }
 
 func (t *TxTree) Cid() *cid.Cid {
@@ -30,10 +29,10 @@ func (t *TxTree) Links() []*node.Link {
 
 func (t *TxTree) RawData() []byte {
 	out := make([]byte, 64)
-	lbytes := t.Left.Cid.Hash()[2:]
+	lbytes := cidToHash(t.Left.Cid)
 	copy(out[:32], lbytes)
 
-	rbytes := t.Right.Cid.Hash()[2:]
+	rbytes := cidToHash(t.Right.Cid)
 	copy(out[32:], rbytes)
 
 	return out

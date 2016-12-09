@@ -14,14 +14,14 @@ import (
 type Block struct {
 	rawdata []byte
 
-	Version       uint32 `json:"version"`
-	PreviousBlock []byte `json:"parent"`
-	MerkleRoot    []byte `json:"merkle_root"`
-	Timestamp     uint32 `json:"timestamp"`
-	Difficulty    uint32 `json:"difficulty"`
-	Nonce         []byte `json:"nonce"`
-	Solution      []byte
-	ReservedHash  []byte
+	Version      uint32   `json:"version"`
+	Parent       *cid.Cid `json:"parent"`
+	MerkleRoot   *cid.Cid `json:"txs"`
+	Timestamp    uint32   `json:"timestamp"`
+	Difficulty   uint32   `json:"difficulty"`
+	Nonce        []byte   `json:"nonce"`
+	Solution     []byte   `json:"solution"`
+	ReservedHash []byte   `json:"reserved"`
 
 	cid *cid.Cid
 }
@@ -35,7 +35,7 @@ var _ node.Node = (*Block)(nil)
 
 func (b *Block) Cid() *cid.Cid {
 	h, _ := mh.Sum(b.header(), mh.DBL_SHA2_256, -1)
-	return cid.NewCidV1(cid.BitcoinBlock, h)
+	return cid.NewCidV1(cid.ZcashBlock, h)
 }
 
 func (b *Block) RawData() []byte {
@@ -43,13 +43,14 @@ func (b *Block) RawData() []byte {
 }
 
 func (b *Block) Links() []*node.Link {
-	mrhash, _ := mh.Encode(b.MerkleRoot, mh.DBL_SHA2_256)
-	c := cid.NewCidV1(cid.BitcoinTx, mrhash)
-
 	return []*node.Link{
 		{
-			Name: "merkleRoot",
-			Cid:  c,
+			Name: "txs",
+			Cid:  b.MerkleRoot,
+		},
+		{
+			Name: "parent",
+			Cid:  b.Parent,
 		},
 	}
 }
@@ -76,16 +77,13 @@ func (b *Block) Resolve(path []string) (interface{}, []string, error) {
 	case "nonce":
 		return b.Nonce, path[1:], nil
 	case "parent":
-		blkhash, _ := mh.Encode(b.PreviousBlock, mh.DBL_SHA2_256)
-		c := cid.NewCidV1(cid.BitcoinBlock, blkhash)
-
-		return &node.Link{Cid: c}, path[1:], nil
-	case "tx":
-		txroothash, _ := mh.Encode(b.MerkleRoot, mh.DBL_SHA2_256)
-		c := cid.NewCidV1(cid.BitcoinTx, txroothash)
-
-		return &node.Link{Cid: c}, path[1:], nil
-
+		return &node.Link{Cid: b.Parent}, path[1:], nil
+	case "txs":
+		return &node.Link{Cid: b.MerkleRoot}, path[1:], nil
+	case "solution":
+		return b.Solution, path[1:], nil
+	case "reserved":
+		return b.ReservedHash, path[1:], nil
 	default:
 		return nil, nil, fmt.Errorf("no such link")
 	}
@@ -106,16 +104,26 @@ func (b *Block) ResolveLink(path []string) (*node.Link, []string, error) {
 	return lnk, rest, nil
 }
 
+func cidToHash(c *cid.Cid) []byte {
+	h := []byte(c.Hash())
+	return h[len(h)-32:]
+}
+
+func hashToCid(hv []byte, t uint64) *cid.Cid {
+	h, _ := mh.Sum(hv, mh.DBL_SHA2_256, -1)
+	return cid.NewCidV1(t, h)
+}
+
 // header generates a serialized block header for this block
 func (b *Block) header() []byte {
-	buf := bytes.NewBuffer(make([]byte, 112))
+	buf := new(bytes.Buffer)
 
 	i := make([]byte, 4)
 	binary.LittleEndian.PutUint32(i, b.Version)
 	buf.Write(i)
 
-	buf.Write(b.PreviousBlock)
-	buf.Write(b.MerkleRoot)
+	buf.Write(cidToHash(b.Parent))
+	buf.Write(cidToHash(b.MerkleRoot))
 	buf.Write(b.ReservedHash)
 
 	binary.LittleEndian.PutUint32(i, b.Timestamp)
