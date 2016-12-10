@@ -16,7 +16,7 @@ type Block struct {
 
 	Version      uint32   `json:"version"`
 	Parent       *cid.Cid `json:"parent"`
-	MerkleRoot   *cid.Cid `json:"txs"`
+	MerkleRoot   *cid.Cid `json:"tx"`
 	Timestamp    uint32   `json:"timestamp"`
 	Difficulty   uint32   `json:"difficulty"`
 	Nonce        []byte   `json:"nonce"`
@@ -45,7 +45,7 @@ func (b *Block) RawData() []byte {
 func (b *Block) Links() []*node.Link {
 	return []*node.Link{
 		{
-			Name: "txs",
+			Name: "tx",
 			Cid:  b.MerkleRoot,
 		},
 		{
@@ -78,7 +78,7 @@ func (b *Block) Resolve(path []string) (interface{}, []string, error) {
 		return b.Nonce, path[1:], nil
 	case "parent":
 		return &node.Link{Cid: b.Parent}, path[1:], nil
-	case "txs":
+	case "tx":
 		return &node.Link{Cid: b.MerkleRoot}, path[1:], nil
 	case "solution":
 		return b.Solution, path[1:], nil
@@ -145,7 +145,7 @@ func (b *Block) Size() (uint64, error) {
 }
 
 func (b *Block) Stat() (*node.NodeStat, error) {
-	panic("NYI")
+	return &node.NodeStat{}, nil
 }
 
 func (b *Block) String() string {
@@ -154,16 +154,16 @@ func (b *Block) String() string {
 
 func (b *Block) Tree(p string, depth int) []string {
 	// TODO: this isnt a correct implementation yet
-	return []string{"difficulty", "nonce", "version", "timestamp", "tx"}
+	return []string{"difficulty", "nonce", "version", "timestamp", "tx", "parent", "solution", "reserved"}
 }
 
-func (b *Block) BTCSha() []byte {
+func (b *Block) ZecSha() []byte {
 	blkmh, _ := mh.Sum(b.header(), mh.DBL_SHA2_256, -1)
 	return blkmh[2:]
 }
 
 func (b *Block) HexHash() string {
-	return hex.EncodeToString(revString(b.BTCSha()))
+	return hex.EncodeToString(revString(b.ZecSha()))
 }
 
 func (b *Block) Copy() node.Node {

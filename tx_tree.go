@@ -56,7 +56,6 @@ func (t *TxTree) Resolve(path []string) (interface{}, []string, error) {
 		return t.Right, path[1:], nil
 	default:
 		return nil, nil, fmt.Errorf("no such link")
-
 	}
 }
 
@@ -88,7 +87,7 @@ func (t *TxTree) Size() (uint64, error) {
 }
 
 func (t *TxTree) Stat() (*node.NodeStat, error) {
-	panic("NYI")
+	return &node.NodeStat{}, nil
 }
 
 func (t *TxTree) String() string {

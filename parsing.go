@@ -293,7 +293,7 @@ func parseTxIn(r *bytes.Reader) (*txIn, error) {
 	}
 
 	return &txIn{
-		PrevTxHash:  prevTxHash,
+		PrevTx:      hashToCid(prevTxHash, cid.ZcashTx),
 		PrevTxIndex: binary.LittleEndian.Uint32(prevTxIndex),
 		Script:      script,
 		SeqNo:       binary.LittleEndian.Uint32(seqNo),

@@ -18,9 +18,9 @@ type Tx struct {
 	Inputs     []*txIn          `json:"inputs"`
 	Outputs    []*txOut         `json:"outputs"`
 	LockTime   uint32           `json:"lockTime"`
-	JoinSplits []*JSDescription `json:"joinSplits"`
-	JSPubKey   []byte           `json:"jsPubKey"`
-	JSSig      []byte           `json:"jsSig"`
+	JoinSplits []*JSDescription `json:"joinSplits,omitempty"`
+	JSPubKey   []byte           `json:"jsPubKey,omitempty"`
+	JSSig      []byte           `json:"jsSig,omitempty"`
 }
 
 func (t *Tx) Cid() *cid.Cid {
@@ -31,7 +31,7 @@ func (t *Tx) Cid() *cid.Cid {
 func (t *Tx) Links() []*node.Link {
 	var out []*node.Link
 	for i, input := range t.Inputs {
-		lnk := txHashToLink(input.PrevTxHash)
+		lnk := &node.Link{Cid: input.PrevTx}
 		lnk.Name = fmt.Sprintf("inputs/%d/prevTx", i)
 		out = append(out, lnk)
 	}
@@ -103,8 +103,7 @@ func (t *Tx) Resolve(path []string) (interface{}, []string, error) {
 
 		switch path[2] {
 		case "prevTx":
-			c := hashToCid(inp.PrevTxHash, cid.ZcashTx)
-			return &node.Link{Cid: c}, path[3:], nil
+			return &node.Link{Cid: inp.PrevTx}, path[3:], nil
 		case "seqNo":
 			return inp.SeqNo, path[3:], nil
 		case "script":
@@ -126,7 +125,19 @@ func (t *Tx) Resolve(path []string) (interface{}, []string, error) {
 			return nil, nil, fmt.Errorf("index out of range")
 		}
 
-		return t.Outputs[index], path[2:], nil
+		outp := t.Outputs[index]
+		if len(path) == 2 {
+			return outp, path[2:], nil
+		}
+
+		switch path[2] {
+		case "value":
+			return outp.Value, path[3:], nil
+		case "script":
+			return outp.Script, path[3:], nil
+		default:
+			return nil, nil, fmt.Errorf("no such link")
+		}
 	case "joinSplits":
 		return t.JoinSplits, path[1:], nil
 	case "jsPubKey":
@@ -170,14 +181,52 @@ func (t *Tx) String() string {
 }
 
 func (t *Tx) Tree(p string, depth int) []string {
-	out := []string{"version", "timeLock", "inputs", "outputs", "joinSplits", "jsPubKey", "jsSig"}
-	for i, _ := range t.Inputs {
-		out = append(out, "inputs/"+fmt.Sprint(i))
-	}
-	for i, _ := range t.Outputs {
-		out = append(out, "outputs/"+fmt.Sprint(i))
+	if depth == 0 {
+		return nil
 	}
 
+	switch p {
+	case "inputs":
+		return t.treeInputs(nil, depth+1)
+	case "outputs":
+		return t.treeOutputs(nil, depth+1)
+	case "":
+		out := []string{"version", "timeLock", "inputs", "outputs", "joinSplits", "jsPubKey", "jsSig"}
+		out = t.treeInputs(out, depth)
+		out = t.treeOutputs(out, depth)
+		return out
+	default:
+		return nil
+	}
+}
+
+func (t *Tx) treeInputs(out []string, depth int) []string {
+	if depth < 2 {
+		return out
+	}
+
+	for i, _ := range t.Inputs {
+		inp := "inputs/" + fmt.Sprint(i)
+		out = append(out, inp)
+		if depth > 2 {
+			out = append(out, inp+"/prevTx", inp+"/seqNo", inp+"/script")
+		}
+	}
+	return out
+}
+
+func (t *Tx) treeOutputs(out []string, depth int) []string {
+	if depth < 2 {
+		return out
+	}
+
+	for i, _ := range t.Outputs {
+		o := "outputs/" + fmt.Sprint(i)
+		out = append(out, o)
+		if depth > 2 {
+			out = append(out, o+"/script", o+"/value")
+		}
+	}
 	return out
 }
 
@@ -197,15 +246,15 @@ func txHashToLink(b []byte) *node.Link {
 }
 
 type txIn struct {
-	PrevTxHash  []byte
-	PrevTxIndex uint32
-	Script      []byte
-	SeqNo       uint32
+	PrevTx      *cid.Cid `json:"prevTx"`
+	PrevTxIndex uint32   `json:"prevTxIndex"`
+	Script      []byte   `json:"script"`
+	SeqNo       uint32   `json:"seqNo"`
 }
 
 func (i *txIn) WriteTo(w io.Writer) error {
 	buf := make([]byte, 36)
-	copy(buf[:32], i.PrevTxHash)
+	copy(buf[:32], cidToHash(i.PrevTx))
 	binary.LittleEndian.PutUint32(buf[32:36], i.PrevTxIndex)
 	w.Write(buf)
 
@@ -217,8 +266,8 @@ func (i *txIn) WriteTo(w io.Writer) error {
 }
 
 type txOut struct {
-	Value  uint64
-	Script []byte
+	Value  uint64 `json:"value"`
+	Script []byte `json:"script"`
 }
 
 func (o *txOut) WriteTo(w io.Writer) error {
