@@ -110,7 +110,7 @@ func cidToHash(c *cid.Cid) []byte {
 }
 
 func hashToCid(hv []byte, t uint64) *cid.Cid {
-	h, _ := mh.Sum(hv, mh.DBL_SHA2_256, -1)
+	h, _ := mh.Encode(hv, mh.DBL_SHA2_256)
 	return cid.NewCidV1(t, h)
 }
 

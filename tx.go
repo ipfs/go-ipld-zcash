@@ -246,7 +246,7 @@ func txHashToLink(b []byte) *node.Link {
 }
 
 type txIn struct {
-	PrevTx      *cid.Cid `json:"prevTx"`
+	PrevTx      *cid.Cid `json:"prevTx,omitempty"`
 	PrevTxIndex uint32   `json:"prevTxIndex"`
 	Script      []byte   `json:"script"`
 	SeqNo       uint32   `json:"seqNo"`
