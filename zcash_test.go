@@ -35,9 +35,4 @@ func TestBlockDecoding(t *testing.T) {
 	if !blk.MerkleRoot.Equals(out[len(out)-1].Cid()) {
 		t.Fatal("parsed txset didnt match merkle root")
 	}
-
-	txt := out[len(out)-1].(*TxTree)
-	t.Log(txt.ZECSha())
-	t.Log(blk.MerkleRoot)
-	t.Log(cidToHash(blk.MerkleRoot))
 }
