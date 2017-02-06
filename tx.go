@@ -31,7 +31,7 @@ func (t *Tx) Cid() *cid.Cid {
 func (t *Tx) Links() []*node.Link {
 	var out []*node.Link
 	for i, input := range t.Inputs {
-		lnk := &node.Link{Cid: input.PrevTx.Target}
+		lnk := &node.Link{Cid: input.PrevTx}
 		lnk.Name = fmt.Sprintf("inputs/%d/prevTx", i)
 		out = append(out, lnk)
 	}
@@ -106,7 +106,7 @@ func (t *Tx) Resolve(path []string) (interface{}, []string, error) {
 			if inp.PrevTx == nil {
 				return nil, nil, fmt.Errorf("no such link")
 			}
-			return &node.Link{Cid: inp.PrevTx.Target}, path[3:], nil
+			return &node.Link{Cid: inp.PrevTx}, path[3:], nil
 		case "seqNo":
 			return inp.SeqNo, path[3:], nil
 		case "script":
@@ -249,16 +249,16 @@ func txHashToLink(b []byte) *node.Link {
 }
 
 type txIn struct {
-	PrevTx      *Link  `json:"prevTx,omitempty"`
-	PrevTxIndex uint32 `json:"prevTxIndex"`
-	Script      []byte `json:"script"`
-	SeqNo       uint32 `json:"seqNo"`
+	PrevTx      *cid.Cid `json:"prevTx,omitempty"`
+	PrevTxIndex uint32   `json:"prevTxIndex"`
+	Script      []byte   `json:"script"`
+	SeqNo       uint32   `json:"seqNo"`
 }
 
 func (i *txIn) WriteTo(w io.Writer) error {
 	buf := make([]byte, 36)
 	if i.PrevTx != nil {
-		copy(buf[:32], cidToHash(i.PrevTx.Target))
+		copy(buf[:32], cidToHash(i.PrevTx))
 	}
 	binary.LittleEndian.PutUint32(buf[32:36], i.PrevTxIndex)
 	w.Write(buf)

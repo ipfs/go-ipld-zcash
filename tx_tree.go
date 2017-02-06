@@ -60,7 +60,7 @@ func (t *TxTree) Resolve(path []string) (interface{}, []string, error) {
 }
 
 func (t *TxTree) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]*Link{{t.Left.Cid}, {t.Right.Cid}})
+	return json.Marshal([]*cid.Cid{t.Left.Cid, t.Right.Cid})
 }
 
 func (t *TxTree) Copy() node.Node {

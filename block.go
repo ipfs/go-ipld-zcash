@@ -14,20 +14,16 @@ import (
 type Block struct {
 	rawdata []byte
 
-	Version      uint32 `json:"version"`
-	Parent       *Link  `json:"parent"`
-	MerkleRoot   *Link  `json:"tx"`
-	Timestamp    uint32 `json:"timestamp"`
-	Difficulty   uint32 `json:"difficulty"`
-	Nonce        []byte `json:"nonce"`
-	Solution     []byte `json:"solution"`
-	ReservedHash []byte `json:"reserved"`
+	Version      uint32   `json:"version"`
+	Parent       *cid.Cid `json:"parent"`
+	MerkleRoot   *cid.Cid `json:"tx"`
+	Timestamp    uint32   `json:"timestamp"`
+	Difficulty   uint32   `json:"difficulty"`
+	Nonce        []byte   `json:"nonce"`
+	Solution     []byte   `json:"solution"`
+	ReservedHash []byte   `json:"reserved"`
 
 	cid *cid.Cid
-}
-
-type Link struct {
-	Target *cid.Cid `json:"/"`
 }
 
 // assert that Block matches the Node interface for ipld
@@ -46,11 +42,11 @@ func (b *Block) Links() []*node.Link {
 	return []*node.Link{
 		{
 			Name: "tx",
-			Cid:  b.MerkleRoot.Target,
+			Cid:  b.MerkleRoot,
 		},
 		{
 			Name: "parent",
-			Cid:  b.Parent.Target,
+			Cid:  b.Parent,
 		},
 	}
 }
@@ -77,9 +73,9 @@ func (b *Block) Resolve(path []string) (interface{}, []string, error) {
 	case "nonce":
 		return b.Nonce, path[1:], nil
 	case "parent":
-		return &node.Link{Cid: b.Parent.Target}, path[1:], nil
+		return &node.Link{Cid: b.Parent}, path[1:], nil
 	case "tx":
-		return &node.Link{Cid: b.MerkleRoot.Target}, path[1:], nil
+		return &node.Link{Cid: b.MerkleRoot}, path[1:], nil
 	case "solution":
 		return b.Solution, path[1:], nil
 	case "reserved":
@@ -122,8 +118,8 @@ func (b *Block) header() []byte {
 	binary.LittleEndian.PutUint32(i, b.Version)
 	buf.Write(i)
 
-	buf.Write(cidToHash(b.Parent.Target))
-	buf.Write(cidToHash(b.MerkleRoot.Target))
+	buf.Write(cidToHash(b.Parent))
+	buf.Write(cidToHash(b.MerkleRoot))
 	buf.Write(b.ReservedHash)
 
 	binary.LittleEndian.PutUint32(i, b.Timestamp)

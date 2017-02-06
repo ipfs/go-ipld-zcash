@@ -100,7 +100,7 @@ func ReadBlock(r *bytes.Reader) (*Block, error) {
 	}
 
 	blkhash, _ := mh.Encode(prevBlock, mh.DBL_SHA2_256)
-	blk.Parent = &Link{cid.NewCidV1(cid.ZcashBlock, blkhash)}
+	blk.Parent = cid.NewCidV1(cid.ZcashBlock, blkhash)
 
 	merkleRoot := make([]byte, 32)
 	_, err = io.ReadFull(r, merkleRoot)
@@ -108,7 +108,7 @@ func ReadBlock(r *bytes.Reader) (*Block, error) {
 		return nil, err
 	}
 	txroothash, _ := mh.Encode(merkleRoot, mh.DBL_SHA2_256)
-	blk.MerkleRoot = &Link{cid.NewCidV1(cid.ZcashTx, txroothash)}
+	blk.MerkleRoot = cid.NewCidV1(cid.ZcashTx, txroothash)
 
 	reserved := make([]byte, 32)
 	_, err = io.ReadFull(r, reserved)
@@ -292,9 +292,9 @@ func parseTxIn(r *bytes.Reader) (*txIn, error) {
 		return nil, err
 	}
 
-	var ptxl *Link
+	var ptxl *cid.Cid
 	if !isBlank(prevTxHash) {
-		ptxl = &Link{hashToCid(prevTxHash, cid.ZcashTx)}
+		ptxl = hashToCid(prevTxHash, cid.ZcashTx)
 	}
 	return &txIn{
 		PrevTx:      ptxl,
