@@ -9,15 +9,15 @@ import (
 	"strconv"
 
 	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-node"
+	node "github.com/ipfs/go-ipld-format"
 	mh "github.com/multiformats/go-multihash"
 )
 
 type Tx struct {
 	Version    uint32           `json:"version"`
-	Inputs     []*txIn          `json:"inputs"`
-	Outputs    []*txOut         `json:"outputs"`
-	LockTime   uint32           `json:"lockTime"`
+	Inputs     []*TxIn          `json:"inputs"`
+	Outputs    []*TxOut         `json:"outputs"`
+	LockTime   uint32           `json:"locktime"`
 	JoinSplits []*JSDescription `json:"joinSplits,omitempty"`
 	JSPubKey   []byte           `json:"jsPubKey,omitempty"`
 	JSSig      []byte           `json:"jsSig,omitempty"`
@@ -31,9 +31,11 @@ func (t *Tx) Cid() *cid.Cid {
 func (t *Tx) Links() []*node.Link {
 	var out []*node.Link
 	for i, input := range t.Inputs {
-		lnk := &node.Link{Cid: input.PrevTx}
-		lnk.Name = fmt.Sprintf("inputs/%d/prevTx", i)
-		out = append(out, lnk)
+		if input.PrevTx != nil {
+			lnk := &node.Link{Cid: input.PrevTx}
+			lnk.Name = fmt.Sprintf("inputs/%d/prevTx", i)
+			out = append(out, lnk)
+		}
 	}
 	return out
 }
@@ -72,7 +74,7 @@ func (t *Tx) RawData() []byte {
 
 func (t *Tx) Loggable() map[string]interface{} {
 	return map[string]interface{}{
-		"type": "zcash_tx",
+		"type": "zcashTx",
 	}
 }
 
@@ -248,14 +250,14 @@ func txHashToLink(b []byte) *node.Link {
 	return &node.Link{Cid: c}
 }
 
-type txIn struct {
-	PrevTx      *cid.Cid `json:"prevTx,omitempty"`
-	PrevTxIndex uint32   `json:"prevTxIndex"`
+type TxIn struct {
+	PrevTx      *cid.Cid `json:"txid,omitempty"`
+	PrevTxIndex uint32   `json:"vout"`
 	Script      []byte   `json:"script"`
-	SeqNo       uint32   `json:"seqNo"`
+	SeqNo       uint32   `json:"sequence"`
 }
 
-func (i *txIn) WriteTo(w io.Writer) error {
+func (i *TxIn) WriteTo(w io.Writer) error {
 	buf := make([]byte, 36)
 	if i.PrevTx != nil {
 		copy(buf[:32], cidToHash(i.PrevTx))
@@ -270,12 +272,12 @@ func (i *txIn) WriteTo(w io.Writer) error {
 	return nil
 }
 
-type txOut struct {
+type TxOut struct {
 	Value  uint64 `json:"value"`
 	Script []byte `json:"script"`
 }
 
-func (o *txOut) WriteTo(w io.Writer) error {
+func (o *TxOut) WriteTo(w io.Writer) error {
 	val := make([]byte, 8)
 	binary.LittleEndian.PutUint64(val, o.Value)
 	w.Write(val)

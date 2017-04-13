@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/ipfs/go-ipld-node"
+	node "github.com/ipfs/go-ipld-format"
 )
 
 func loadTestBlock() (*Block, []node.Node, []byte, error) {

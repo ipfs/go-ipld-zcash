@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	cid "github.com/ipfs/go-cid"
-	node "github.com/ipfs/go-ipld-node"
+	node "github.com/ipfs/go-ipld-format"
 	mh "github.com/multiformats/go-multihash"
 )
 
@@ -39,16 +39,19 @@ func (b *Block) RawData() []byte {
 }
 
 func (b *Block) Links() []*node.Link {
-	return []*node.Link{
+	txs := []*node.Link{
 		{
 			Name: "tx",
 			Cid:  b.MerkleRoot,
 		},
-		{
+	}
+	if b.Parent != nil {
+		txs = append(txs, &node.Link{
 			Name: "parent",
 			Cid:  b.Parent,
-		},
+		})
 	}
+	return txs
 }
 
 func (b *Block) Loggable() map[string]interface{} {
